@@ -40,9 +40,16 @@ if [ ! -d "$DRIVER_DIR" ]; then
     cd "$DRIVER_DIR"
     sudo git clone https://github.com/Khatcode/AWUS036ACH-Automated-Driver-Install.git
     cd AWUS036ACH-Automated-Driver-Install
-    # Automatically select "1" for Realtek drivers installation
-    echo "Running Alfasetup.sh with automatic input selection..."
-    echo "1" | sudo ./Alfasetup.sh
+    
+    # Use expect to automatically select "1" for Realtek drivers installation
+    echo "Running Alfasetup.sh with automatic input selection using expect..."
+    sudo expect <<EOF
+    spawn ./Alfasetup.sh
+    expect "Enter 1 or 2:"
+    send "1\r"
+    expect eof
+EOF
+
 else
     echo "WiFi drivers already set up; skipping..."
 fi
