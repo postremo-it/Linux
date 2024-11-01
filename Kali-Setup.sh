@@ -8,17 +8,20 @@ fi
 
 echo "Starting consolidated Kali setup script..."
 
+# Set DEBIAN_FRONTEND to noninteractive to suppress prompts throughout the script
+export DEBIAN_FRONTEND=noninteractive
+
 # Preconfigure console-setup to select "Guess optimal character set" non-interactively
 echo "Configuring character set for console font to 'Guess optimal character set'..."
 sudo debconf-set-selections <<< 'console-setup console-setup/charmap47 select Guess optimal character set'
+
+# Force reconfigure console-setup to apply the character set selection without prompting
+sudo dpkg-reconfigure -f noninteractive console-setup
 
 # Automatically allow service restarts during libc upgrades
 echo "Configuring automatic service restarts during package upgrades..."
 sudo debconf-set-selections <<< 'libc6:amd64 libraries/restart-without-asking boolean true'
 sudo debconf-set-selections <<< 'libc6:arm64 libraries/restart-without-asking boolean true'
-
-# Set DEBIAN_FRONTEND to noninteractive to auto-confirm prompts, including PostgreSQL
-export DEBIAN_FRONTEND=noninteractive
 
 # Suppress PostgreSQL prompt about obsolete version
 echo "Setting PostgreSQL configuration to suppress obsolete version prompt..."
@@ -147,8 +150,5 @@ else
     echo "rockyou wordlist already unpacked; skipping..."
 fi
 
-echo "Setup complete. Please remember to reboot your system to apply changes."
-
-echo "Setup complete. Rebooting."
-reboot
-
+echo "Setup complete. Rebooting system to apply changes..."
+sudo reboot
