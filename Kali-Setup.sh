@@ -8,7 +8,7 @@ fi
 
 echo "Starting consolidated Kali setup script..."
 
-# Preconfigure console-setup to select "Guess optimal character set"
+# Preconfigure console-setup to select "Guess optimal character set" non-interactively
 echo "Configuring character set for console font to 'Guess optimal character set'..."
 sudo debconf-set-selections <<< 'console-setup console-setup/charmap47 select Guess optimal character set'
 
@@ -148,3 +148,7 @@ else
 fi
 
 echo "Setup complete. Please remember to reboot your system to apply changes."
+
+echo "Setup complete. Rebooting."
+reboot
+
