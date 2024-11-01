@@ -32,29 +32,107 @@ sudo apt-get update -y && sudo apt-get dist-upgrade -y
 echo "Installing VM tools (spice-vdagent and qemu-guest-agent)..."
 sudo apt-get install -y spice-vdagent qemu-guest-agent
 
-# Setup WiFi drivers; only proceed if the directory does not exist
-DRIVER_DIR="/home/kali/Desktop/WiFi_Drivers"
-if [ ! -d "$DRIVER_DIR" ]; then
-    echo "Setting up WiFi drivers..."
-    mkdir -p "$DRIVER_DIR"
-    cd "$DRIVER_DIR"
-    sudo git clone https://github.com/Khatcode/AWUS036ACH-Automated-Driver-Install.git
-    cd AWUS036ACH-Automated-Driver-Install
-    
-    # Use expect to automatically select "1" for Realtek drivers installation
-    echo "Running Alfasetup.sh with automatic input selection using expect..."
-    sudo expect <<EOF
-    spawn ./Alfasetup.sh
-    expect "Enter 1 or 2:"
-    send "1\r"
-    expect eof
-EOF
+# Set up WiFi drivers directly, removing the need for a separate script
+echo "Setting up Realtek WiFi drivers without external script..."
 
-else
-    echo "WiFi drivers already set up; skipping..."
-fi
+# Function to check if running as root
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo "This script must be run as root. Use 'sudo' or log in as the root user."
+        exit 1
+    fi
+}
 
-# Install additional tools if they are not already installed
+# Detect Linux distribution and set package manager
+detect_distribution() {
+    if [[ -f /etc/debian_version ]]; then
+        PACKAGE_MANAGER="apt-get"
+    elif [[ -f /etc/redhat-release ]]; then
+        PACKAGE_MANAGER="dnf"
+    else
+        echo "Unsupported Linux distribution. Exiting."
+        exit 1
+    fi
+}
+
+# Install git if not present
+install_git() {
+    if ! command -v git &> /dev/null; then
+        echo "git is not installed. Installing git..."
+        sudo "$PACKAGE_MANAGER" install git -y
+    fi
+}
+
+# Install kernel headers
+install_kernel_headers() {
+    echo "Installing kernel headers..."
+    if ! sudo "$PACKAGE_MANAGER" install linux-headers-$(uname -r) -y; then
+        echo "Specific kernel headers not found. Installing generic headers instead..."
+        sudo "$PACKAGE_MANAGER" install linux-headers-generic -y
+        if [[ $? -ne 0 ]]; then
+            echo "Failed to install kernel headers. Exiting."
+            exit 1
+        fi
+    fi
+}
+
+# Update and upgrade system packages
+update_system() {
+    echo "Installing updates and upgrades. This may take some time."
+    sudo "$PACKAGE_MANAGER" update -y && \
+    sudo "$PACKAGE_MANAGER" upgrade -y && \
+    sudo "$PACKAGE_MANAGER" dist-upgrade -y
+}
+
+# Check if the Realtek driver is already installed
+check_existing_driver() {
+    if lsmod | grep -q "88XXau"; then
+        echo "Driver already installed."
+        
+        # Prompt for driver removal
+        read -p "Do you want to remove the existing installation? (y/n): " REMOVE_CHOICE
+        
+        if [[ "$REMOVE_CHOICE" == "y" || "$REMOVE_CHOICE" == "Y" ]]; then
+            echo "Removing existing driver installation."
+            sudo rmmod 88XXau
+            if [[ $? -ne 0 ]]; then
+                echo "Failed to remove the driver from the kernel. Exiting."
+                exit 1
+            fi
+            
+            # Remove driver via DKMS, if applicable
+            if command -v dkms &> /dev/null; then
+                sudo dkms remove rtl8812au/<version> --all || echo "Continuing to manual removal..."
+            fi
+            
+            # Remove manually from /lib/modules if needed
+            DRIVER_PATH="/lib/modules/$(uname -r)/kernel/drivers/net/wireless/88XXau.ko"
+            [ -f "$DRIVER_PATH" ] && sudo rm -f "$DRIVER_PATH" && echo "Driver files removed from $DRIVER_PATH."
+            
+            sudo depmod -a
+            echo "Driver uninstalled successfully."
+        else
+            echo "Skipping driver removal."
+            exit 0
+        fi
+    fi
+}
+
+# Install Realtek drivers (always use package manager)
+install_realtek_drivers() {
+    echo "Installing Realtek drivers using the package manager."
+    sudo "$PACKAGE_MANAGER" install realtek-rtl88xxau-dkms -y
+}
+
+# Execute WiFi driver setup steps directly
+detect_distribution
+update_system
+install_git
+install_kernel_headers
+check_existing_driver
+install_realtek_drivers
+
+# Install additional tools if not already installed
 if ! command -v hcxdumptool &> /dev/null; then
     echo "Installing hcxtools..."
     sudo apt-get install -y hcxtools
@@ -69,5 +147,4 @@ else
     echo "rockyou wordlist already unpacked; skipping..."
 fi
 
-echo "Setup complete. Rebooting system..."
-sudo reboot
+echo "Setup complete. Please remember to reboot your system to apply changes."
