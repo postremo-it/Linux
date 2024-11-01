@@ -14,16 +14,9 @@ echo "Starting consolidated Kali setup script..."
 # Set DEBIAN_FRONTEND to noninteractive to suppress prompts throughout the script
 export DEBIAN_FRONTEND=noninteractive
 
-# Preconfigure console-setup settings using a temporary file
-echo "Preconfiguring console-setup settings..."
-echo "console-setup console-setup/charmap47 select UTF-8" > encoding.conf
-echo "console-setup console-setup/fontface47 select Fixed" >> encoding.conf
-echo "console-setup console-setup/fontsize-text47 select 8x16" >> encoding.conf
-debconf-set-selections encoding.conf
-rm encoding.conf
-
-# Force reconfigure console-setup to apply the character set selection without prompting
-sudo dpkg-reconfigure -f noninteractive console-setup
+# Remove console-setup package to avoid character set prompt during upgrades
+echo "Removing console-setup to avoid character set configuration prompt..."
+sudo apt-get remove -y console-setup
 
 # Automatically allow service restarts during libc upgrades
 echo "Configuring automatic service restarts during package upgrades..."
